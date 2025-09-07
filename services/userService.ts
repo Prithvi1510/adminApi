@@ -1,7 +1,8 @@
 import { post, get } from 'axios';
 require('dotenv').config();
-import {UserRepresentation} from '../types/Keycloak.userRepresentation.ts'
-import { TokenResponse } from '../types/Keycloak.tokenResponse.ts';
+import {UserRepresentation} from '../types/Keycloak.userRepresentation'
+import { TokenResponse } from '../types/Keycloak.tokenResponse';
+import axios from 'axios';
 
 const { KEYCLOAK_BASE_URL, REALM, CLIENT_ID, CLIENT_SECRET } = process.env;
 
@@ -76,11 +77,13 @@ export async function getAllUsers() {
 
 export async function createUser(userData: createUserBody): Promise<any> {
   const token = await getAccessToken();
+  const payload = buildUserPayload(userData);  
+
 
   try{
     const response = await axios.post(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users`,
-      userData,
+      payload,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -129,9 +132,11 @@ export async function deleteUser(userId: string): Promise<any> {
       }
     );
 
+
     if (response.status === 204) {
-      return { code: 204, message: 'No Content' };
-    } else {
+      return { code: 200, message: `User ${userId} deleted successfully` };
+    }
+    else {
       return { code: response.status, message: response.statusText, data: response.data };
     }
   } catch (error: any) {
@@ -174,11 +179,7 @@ export async function disableUser(userId: string): Promise<any> {
       }
     );
 
-    return {
-      code: response.status,
-      message: response.statusText,
-      data: response.data || null,
-    };
+    return { code: 200 , message: `User is disable ${userId}`, data: response.data || null };
 
   } catch (error: any) {
     if (error.response) {

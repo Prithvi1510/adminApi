@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { TokenResponse } from './types/Keycloak.tokenResponse' ;
 import userRouter from './routes/userRoutes'
 dotenv.config();
+import { Request, Response } from 'express';
+
 
 const app = express();
 app.use(json());
@@ -40,7 +42,7 @@ export async function getAllUsers() {
 
 // ----------------- Example Controller for Legacy Checking  -----------------
 export const exampleController = {
-  async listUsers(req, res) {
+  async listUsers(req : Request, res : Response) {
     try {
       const users = await getAllUsers();
       res.status(200).json(users);
@@ -54,7 +56,7 @@ export const exampleController = {
 };
 
 // ----------------- Routes -----------------
-app.get('/example/listall', exampleController.listUsers);
+app.get('/example/listall', (req, res) => exampleController.listUsers(req, res));
 app.use('/users', userRouter);
 
 export default app;
