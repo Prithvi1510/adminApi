@@ -1,6 +1,6 @@
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#UserRepresentation
 
-import { CredentialRepresentation } from './Keycloak.credentialRepresentation.ts';
+import { CredentialRepresentation } from './Keycloak.credentialRepresentation';
 
 export interface UserRepresentation {
   id?: string;

@@ -3,11 +3,20 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import { TokenResponse } from './types/Keycloak.tokenResponse' ;
 import userRouter from './routes/userRoutes'
+import cors from 'cors'
 dotenv.config();
 import { Request, Response } from 'express';
 
 
 const app = express();
+
+app.use(cors({
+  origin: 'http://localhost:5173', 
+  methods: '*',
+  allowedHeaders: '*'
+}));
+
+
 app.use(json());
 
 // Keycloak config

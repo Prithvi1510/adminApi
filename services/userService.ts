@@ -73,8 +73,25 @@ export async function getAllUsers() {
   return usersResponse.data;
 }
 
-//https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
+export async function getOneUser(userId : string) {
+  const token = await getAccessToken();
+  try {
+    const userResponse = await get(
+      `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return userResponse.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      return null; // User not found
+    }
+    throw error; // Rethrow other errors
+  }
+}
 
+
+
+//https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
 export async function createUser(userData: createUserBody): Promise<any> {
   const token = await getAccessToken();
   const payload = buildUserPayload(userData);  
@@ -163,7 +180,7 @@ export async function deleteUser(userId: string): Promise<any> {
   }
 }
     
-
+/// Updation Endpoints 
 export async function disableUser(userId: string): Promise<any> {
   const token = await getAccessToken();
 
@@ -197,3 +214,42 @@ export async function disableUser(userId: string): Promise<any> {
     }
   }
 }
+
+
+// PUT /admin/realms/{realm}/users/{user-id}
+//https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
+
+export async function updateUser(userId: string, updateData: Partial<UserRepresentation>): Promise<any> {
+
+  const token = await getAccessToken();
+  
+  try {
+    const response = await axios.put(
+      `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
+      updateData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return { code: 200 , message: `User is updated ${userId}`, data: response.data || null };
+
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        code: error.response.status,
+        message: error.response.statusText,
+        data: error.response.data,
+      };
+    } else {
+      return {
+        code: 500,
+        message: error.message,
+        data: null,
+      };
+    }
+  } 
+} 

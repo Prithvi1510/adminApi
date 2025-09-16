@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getAllUsers, createUser, deleteUser, disableUser } from '../services/userService';
+import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser} from '../services/userService';
 
 export const userController = {
   async getUsers(req: Request, res: Response) {
@@ -10,6 +10,20 @@ export const userController = {
       res.status(500).json({ message: error.message });
     }
   },
+
+  async getOneUser(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const user = await getOneUser(userId);
+      if (user) {
+        res.status(200).json(user);
+      } else {
+        res.status(404).json({ message: 'User not found' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  },  
 
   async createUser(req: Request, res: Response) {
     try {
@@ -40,4 +54,15 @@ export const userController = {
       res.status(500).json({ message: error.message });
     }
   },
+
+  async updateUser(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const userData = req.body;
+      const result = await updateUser(userId, userData);
+      res.status(result.code).json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 };
