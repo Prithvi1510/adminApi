@@ -17,7 +17,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "tsc",
-    "dev1": "ts-node src/server.ts",
+    "dev1": "ts-node server.ts",
     "dev": "nodemon --exec ts-node server.ts"
   }
 }

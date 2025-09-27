@@ -249,7 +249,7 @@ export async function updateUser(userId: string, updateData: Partial<UserReprese
         code: 500,
         message: error.message,
         data: null,
-      };
+      };    
     }
   } 
 } 
