@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Nodemon + ts-node",
+      "runtimeExecutable": "nodemon",
+      "runtimeArgs": [
+        "--inspect",
+        "--exec",
+        "ts-node",
+        "server.ts"
+      ],
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
