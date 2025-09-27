@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,      // <-- generates .js.map files
+    "inlineSources": true   // <-- includes original TS in the source maps
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}
