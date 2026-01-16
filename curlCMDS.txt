@@ -1,0 +1,25 @@
+curl -X GET "http://localhost:3000/users"
+curl -X GET "http://localhost:3000/users/<USER_ID>"
+curl -X GET "http://localhost:3000/users/1f2a3b4c-1111-2222-3333-abcdef123456"
+
+curl -X POST "http://localhost:3000/users" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "newuser2",
+    "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "password": "TemporaryPass123",
+    "emailVerified": false,
+    "requiredActions": ["VERIFY_EMAIL", "UPDATE_PASSWORD"]
+  }'
+
+
+curl -X DELETE "http://localhost:3000/users/<USER_ID>"
+
+curl -X PUT "http://localhost:3000/users/<USER_ID>/disable"
+
+curl -X GET "http://localhost:3000/users/roles/allRoles"
+
+curl -X GET "http://localhost:3000/users/roles/<USER_ID>"
+

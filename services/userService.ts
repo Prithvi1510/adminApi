@@ -1,8 +1,8 @@
-import { post, get } from 'axios';
-require('dotenv').config();
-import {UserRepresentation} from '../types/Keycloak.userRepresentation'
-import { TokenResponse } from '../types/Keycloak.tokenResponse';
-import axios from 'axios';
+import { post, get } from "axios";
+require("dotenv").config();
+import { UserRepresentation } from "../types/Keycloak.userRepresentation";
+import { TokenResponse } from "../types/Keycloak.tokenResponse";
+import axios from "axios";
 
 const { KEYCLOAK_BASE_URL, REALM, CLIENT_ID, CLIENT_SECRET } = process.env;
 
@@ -11,19 +11,19 @@ interface createUserBody {
   username: string;
   firstName?: string;
   lastName?: string;
-  password?: string; 
+  password?: string;
   requiredActions?: string[];
 }
 
-interface deleteUserBody { 
-  realm : string, 
-  userid : string
+interface deleteUserBody {
+  realm: string;
+  userid: string;
 }
 
-interface keycloakAPIResponse { 
-  code : any , 
-  message : any , 
-  Datatype ?: any
+interface keycloakAPIResponse {
+  code: any;
+  message: any;
+  Datatype?: any;
 }
 
 interface RoleRepresentation {
@@ -39,16 +39,16 @@ interface UserRoles {
   clientRoles?: RoleRepresentation[];
 }
 
-async function getAccessToken() : Promise<string | undefined>  {
+export async function getAccessToken(): Promise<string | undefined> {
   const tokenUrl = `${KEYCLOAK_BASE_URL}/realms/${REALM}/protocol/openid-connect/token`;
 
   const params = new URLSearchParams();
-  params.append('client_id', CLIENT_ID!);
-  params.append('client_secret', CLIENT_SECRET!);
-  params.append('grant_type', 'client_credentials');
+  params.append("client_id", CLIENT_ID!);
+  params.append("client_secret", CLIENT_SECRET!);
+  params.append("grant_type", "client_credentials");
 
   const response = await post<TokenResponse>(tokenUrl, params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
 
   return response.data.access_token as any;
@@ -65,28 +65,28 @@ function buildUserPayload(userData: createUserBody): UserRepresentation {
     credentials: userData.password
       ? [
           {
-            type: 'password',
+            type: "password",
             value: userData.password,
-            temporary: true
-          }
+            temporary: true,
+          },
         ]
-      : undefined , 
-    requiredActions: userData.requiredActions ? userData.requiredActions :  []
+      : undefined,
+    requiredActions: userData.requiredActions ? userData.requiredActions : [],
   };
 }
 
-//Helper Function to only include certain fields in roles Response 
+//Helper Function to only include certain fields in roles Response
 export function filterRoleFields(roles: any): any {
   const extractNames = (roleArray: any[]) => roleArray.map((r) => r.name);
 
   return {
-      realmRoles: extractNames(roles.realmRoles || []),
-      clientRoles: extractNames(roles.clientRoles || []),
-  }
-};
+    realmRoles: extractNames(roles.realmRoles || []),
+    clientRoles: extractNames(roles.clientRoles || []),
+  };
+}
 
 // ***********************************************************************************************************************
-// API Services 
+// API Services
 // ***********************************************************************************************************************
 
 export async function getAllUsers() {
@@ -95,22 +95,37 @@ export async function getAllUsers() {
     `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
+
+  const userArray = usersResponse.data as Array<any>;
+
+  const ids = userArray.map((user: any) => user.id);
+  const roles = await getAllUsersRoles(ids);
+
+  // Merge roles into user data
+  const usersWithRoles = userArray.map((user: any) => ({
+    ...user,
+    roles: filterRoleFields(roles[user.id]) || { realmRoles: [], clientRoles: [] },
+  }));
+
+  usersResponse.data = usersWithRoles;
+
   return usersResponse.data;
 }
 
-export async function getOneUser(userId : string) {
+export async function getOneUser(userId: string) {
   const token = await getAccessToken();
   try {
-    const userResponse = await get(
+    const userResponse = (await get(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
       { headers: { Authorization: `Bearer ${token}` } }
-    ) as any;
+    )) as any;
     const roles = await getUserRoles(userId);
-    const roleFields =  filterRoleFields(roles); 
+    const roleFields = filterRoleFields(roles);
 
-    userResponse.data.realmRoles = roleFields.realmRoles;
-    userResponse.data.clientRoles = roleFields.clientRoles;
-
+    userResponse.data.roles = {
+      realmRoles: roleFields.realmRoles,
+      clientRoles: roleFields.clientRoles,
+    };
 
     return userResponse.data;
   } catch (error: any) {
@@ -121,19 +136,23 @@ export async function getOneUser(userId : string) {
   }
 }
 
-
-
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
 export async function createUser(userData: createUserBody): Promise<any> {
   const token = await getAccessToken();
-  const payload = buildUserPayload(userData);  
-
+  const payload = buildUserPayload(userData);
 
   //https://stackoverflow.com/questions/76174231/keycloak-set-required-actions-for-user
-  const actionsList = ["VERIFY_EMAIL", "UPDATE_PROFILE", "CONFIGURE_TOTP", "UPDATE_PASSWORD"]; 
+  const actionsList = [
+    "VERIFY_EMAIL",
+    "UPDATE_PROFILE",
+    "CONFIGURE_TOTP",
+    "UPDATE_PASSWORD",
+  ];
 
   if (userData.requiredActions && userData.requiredActions.length > 0) {
-    payload.requiredActions = userData.requiredActions.filter(action => actionsList.includes(action));
+    payload.requiredActions = userData.requiredActions.filter((action) =>
+      actionsList.includes(action)
+    );
   }
 
   try {
@@ -143,7 +162,7 @@ export async function createUser(userData: createUserBody): Promise<any> {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       }
     );
@@ -152,7 +171,7 @@ export async function createUser(userData: createUserBody): Promise<any> {
       return {
         success: true,
         status: 201,
-        message: 'User created successfully',
+        message: "User created successfully",
       };
     }
 
@@ -166,8 +185,11 @@ export async function createUser(userData: createUserBody): Promise<any> {
     if (error.response) {
       return {
         success: false,
-        status: error.response.status,   // e.g., 409 for Conflict
-        message: error.response.status == 409  ? "This user or email is already enrolled"  : error.message
+        status: error.response.status, // e.g., 409 for Conflict
+        message:
+          error.response.status == 409
+            ? "This user or email is already enrolled"
+            : error.message,
       };
     }
 
@@ -178,8 +200,6 @@ export async function createUser(userData: createUserBody): Promise<any> {
     };
   }
 }
-
-
 
 export async function deleteUser(userId: string): Promise<any> {
   const token = await getAccessToken();
@@ -194,29 +214,31 @@ export async function deleteUser(userId: string): Promise<any> {
       }
     );
 
-
     if (response.status === 204) {
       return { code: 200, message: `User ${userId} deleted successfully` };
-    }
-    else {
-      return { code: response.status, message: response.statusText, data: response.data };
+    } else {
+      return {
+        code: response.status,
+        message: response.statusText,
+        data: response.data,
+      };
     }
   } catch (error: any) {
     if (error.response) {
       const status = error.response.status;
-      let message = '';
+      let message = "";
       switch (status) {
         case 400:
-          message = 'Bad Request';
+          message = "Bad Request";
           break;
         case 403:
-          message = 'Forbidden';
+          message = "Forbidden";
           break;
         case 404:
-          message = 'Not Found';
+          message = "Not Found";
           break;
         default:
-          message = error.response.statusText || 'Error';
+          message = error.response.statusText || "Error";
       }
       return { code: status, message, data: error.response.data };
     } else {
@@ -224,8 +246,8 @@ export async function deleteUser(userId: string): Promise<any> {
     }
   }
 }
-    
-/// Updation Endpoints 
+
+/// Updation Endpoints
 export async function disableUser(userId: string): Promise<any> {
   const token = await getAccessToken();
 
@@ -236,13 +258,16 @@ export async function disableUser(userId: string): Promise<any> {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       }
     );
 
-    return { code: 200 , message: `User is disable ${userId}`, data: response.data || null };
-
+    return {
+      code: 200,
+      message: `User is disable ${userId}`,
+      data: response.data || null,
+    };
   } catch (error: any) {
     if (error.response) {
       return {
@@ -260,51 +285,57 @@ export async function disableUser(userId: string): Promise<any> {
   }
 }
 
-
 // PUT /admin/realms/{realm}/users/{user-id}
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
 
 function updateUserPayload(userData: any): Partial<UserRepresentation> {
   return {
-    username: userData.username,
-    email: userData.email,
-    enabled: userData.enabled,
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    emailVerified: userData.emailVerified,
-    credentials: userData.resetPassword
-      ? [
-          {
-            type: 'password',
-            value: 'tempass123',
-            temporary: true
-          }
-        ]
-      : [] , 
-    requiredActions: userData.requiredActions ? userData.requiredActions :  []
+    ...(userData.username !== undefined && { username: userData.username }),
+    ...(userData.email !== undefined && { email: userData.email }),
+    ...(userData.enabled !== undefined && { enabled: userData.enabled }),
+    ...(userData.firstName !== undefined && { firstName: userData.firstName }),
+    ...(userData.lastName !== undefined && { lastName: userData.lastName }),
+    ...(userData.emailVerified !== undefined && { emailVerified: userData.emailVerified }),
+    ...(userData.resetPassword && {
+      credentials: [
+        {
+          type: "password",
+          value: "tempass123",
+          temporary: true,
+        },
+      ],
+    }),
+    ...(userData.requiredActions && { requiredActions: userData.requiredActions }),
   };
 }
 
+// Update user details
 
-
-export async function updateUser(userId: string, updateData: any): Promise<any> {
-
+export async function updateUser(
+  userId: string,
+  updateData: any
+): Promise<any> {
   const token = await getAccessToken();
-  
+
+  const payload = updateUserPayload(updateData) ; 
+
   try {
     const response = await axios.put(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
-      updateData,
+      payload,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       }
     );
 
-    return { code: 200 , message: `User is updated ${userId}`, data: response.data || null };
-
+    return {
+      code: 200,
+      message: `User is updated ${userId}`,
+      data: response.data || null,
+    };
   } catch (error: any) {
     if (error.response) {
       return {
@@ -317,15 +348,15 @@ export async function updateUser(userId: string, updateData: any): Promise<any> 
         code: 500,
         message: error.message,
         data: null,
-      };    
+      };
     }
-  } 
-} 
+  }
+}
 
-// Get Roles of a user 
+// Get Roles of a user
 export async function getUserRoles(userId: string) {
   const token = await getAccessToken();
-  
+
   // Realm roles
   const realmRolesResponse = await get(
     `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/role-mappings/realm`,
@@ -336,10 +367,10 @@ export async function getUserRoles(userId: string) {
   // Example: clientId = "senvion"
 
   ///TODO : Assign proper Type safety with response from Keycloak Documentation
-  const clientsResponse  = await get(
+  const clientsResponse = (await get(
     `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients?clientId=senvion`,
     { headers: { Authorization: `Bearer ${token}` } }
-  ) as any;
+  )) as any;
 
   const clientId = clientsResponse.data[0]?.id as any;
 
@@ -358,8 +389,8 @@ export async function getUserRoles(userId: string) {
   };
 }
 
-// Get the roles for multiple users  
-export async function getAllUsersRoles(userIds: string[]): Promise<any> {
+// Get the roles for multiple users
+export async function getAllUsersRoles(userIds: any[]): Promise<any> {
   const rolesMap: any = {};
 
   await Promise.all(

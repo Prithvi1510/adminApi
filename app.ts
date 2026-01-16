@@ -6,7 +6,7 @@ import userRouter from './routes/userRoutes'
 import cors from 'cors'
 dotenv.config();
 import { Request, Response } from 'express';
-
+import roleRouter from './routes/roleRoutes';
 
 const app = express();
 
@@ -67,5 +67,6 @@ export const exampleController = {
 // ----------------- Routes -----------------
 app.get('/example/listall', (req, res) => exampleController.listUsers(req, res));
 app.use('/users', userRouter);
+app.use('/roles', roleRouter);
 
 export default app;
