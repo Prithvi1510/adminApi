@@ -4,16 +4,29 @@ import { UserRepresentation } from "../types/Keycloak.userRepresentation";
 import { TokenResponse } from "../types/Keycloak.tokenResponse";
 import axios from "axios";
 
+import  {KeycloakClientRepresentation} from '../types/Keycloak.clientRepresentation';
+
 const { KEYCLOAK_BASE_URL, REALM, CLIENT_ID, CLIENT_SECRET } = process.env;
 
-interface createUserBody {
+export interface createUserBody {
   email: string;
   username: string;
   firstName?: string;
   lastName?: string;
   password?: string;
   requiredActions?: string[];
+
+  // ✅ new attributes
+  phone_number?: string;
+  CreatedBy?: string;
+
+  // optional client roles
+  clientRoles?: {
+    clientId: string;
+    roles: string[];
+  };
 }
+
 
 interface deleteUserBody {
   realm: string;
@@ -62,6 +75,7 @@ function buildUserPayload(userData: createUserBody): UserRepresentation {
     enabled: true,
     firstName: userData.firstName,
     lastName: userData.lastName,
+
     credentials: userData.password
       ? [
           {
@@ -71,9 +85,18 @@ function buildUserPayload(userData: createUserBody): UserRepresentation {
           },
         ]
       : undefined,
+
     requiredActions: userData.requiredActions ? userData.requiredActions : [],
+
+    // ✅ ADD ATTRIBUTES HERE
+    attributes: {
+      phone_number: userData.phone_number ? [userData.phone_number] : [],
+      CreatedBy: userData.CreatedBy ? [userData.CreatedBy] : [],
+    },
   };
 }
+
+
 
 //Helper Function to only include certain fields in roles Response
 export function filterRoleFields(roles: any): any {
@@ -141,7 +164,6 @@ export async function createUser(userData: createUserBody): Promise<any> {
   const token = await getAccessToken();
   const payload = buildUserPayload(userData);
 
-  //https://stackoverflow.com/questions/76174231/keycloak-set-required-actions-for-user
   const actionsList = [
     "VERIFY_EMAIL",
     "UPDATE_PROFILE",
@@ -149,13 +171,17 @@ export async function createUser(userData: createUserBody): Promise<any> {
     "UPDATE_PASSWORD",
   ];
 
+  // ✅ filter required actions
   if (userData.requiredActions && userData.requiredActions.length > 0) {
     payload.requiredActions = userData.requiredActions.filter((action) =>
       actionsList.includes(action)
     );
+  } else {
+    payload.requiredActions = [];
   }
 
   try {
+    // ✅ 1) Create user
     const response = await axios.post(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users`,
       payload,
@@ -167,29 +193,77 @@ export async function createUser(userData: createUserBody): Promise<any> {
       }
     );
 
-    if (response.status === 201) {
-      return {
-        success: true,
-        status: 201,
-        message: "User created successfully",
-      };
+    // Keycloak gives userId in Location header
+    const location = response.headers?.location;
+    const userId = location?.split("/").pop();
+
+    // ✅ 2) Assign client roles (optional)
+    if (userData.clientRoles && userId) {
+      const { clientId, roles } = userData.clientRoles;
+
+      // 2a) Find client UUID by clientId
+      const clientRes = await axios.get<KeycloakClientRepresentation[]>(
+        `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients?clientId=${clientId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const clients = clientRes.data;
+
+      if (!clients || clients.length === 0) {
+        return {
+          success: false,
+          status: 400,
+          message: `Client not found: ${clientId}`,
+        };
+      }
+
+      const clientUUID = clients[0].id;
+
+
+
+      // 2b) Fetch role representations
+      const roleReps = await Promise.all(
+        roles.map(async (roleName) => {
+          const roleRes = await axios.get(
+            `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients/${clientUUID}/roles/${roleName}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          return roleRes.data;
+        })
+      );
+
+      // 2c) Assign roles to the user
+      await axios.post(
+        `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/role-mappings/clients/${clientUUID}`,
+        roleReps,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     return {
-      success: false,
-      status: response.status,
-      message: `Unexpected response: ${response.status}`,
+      success: true,
+      status: 201,
+      message: "User created successfully",
+      userId,
     };
   } catch (error: any) {
-    // If Keycloak returns a response (like 409), pass it through
     if (error.response) {
       return {
         success: false,
-        status: error.response.status, // e.g., 409 for Conflict
+        status: error.response.status,
         message:
-          error.response.status == 409
+          error.response.status === 409
             ? "This user or email is already enrolled"
-            : error.message,
+            : error.response.data || error.message,
       };
     }
 
@@ -200,6 +274,8 @@ export async function createUser(userData: createUserBody): Promise<any> {
     };
   }
 }
+
+
 
 export async function deleteUser(userId: string): Promise<any> {
   const token = await getAccessToken();
@@ -284,6 +360,45 @@ export async function disableUser(userId: string): Promise<any> {
     }
   }
 }
+
+// Enable User 
+export async function enableUser(userId: string): Promise<any> {
+  const token = await getAccessToken();
+
+  try {
+    const response = await axios.put(
+      `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
+      { enabled: true },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return {
+      code: 200,
+      message: `User is Enabled ${userId}`,
+      data: response.data || null,
+    };
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        code: error.response.status,
+        message: error.response.statusText,
+        data: error.response.data,
+      };
+    } else {
+      return {
+        code: 500,
+        message: error.message,
+        data: null,
+      };
+    }
+  }
+}
+
 
 // PUT /admin/realms/{realm}/users/{user-id}
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users

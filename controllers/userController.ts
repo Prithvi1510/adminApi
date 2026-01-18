@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser} from '../services/userService';
+import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser , enableUser} from '../services/userService';
 
 //Role Imports 
 import {getUserRoles , getAllUsersRoles } from '../services/userService'
@@ -52,6 +52,16 @@ export const userController = {
     try {
       const userId = req.params.id;
       const result = await disableUser(userId);
+      res.status(result.code).json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  async enableUser(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const result = await enableUser(userId);
       res.status(result.code).json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
