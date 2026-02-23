@@ -6,7 +6,7 @@ import axios from "axios";
 
 import  {KeycloakClientRepresentation} from '../types/Keycloak.clientRepresentation';
 
-const { KEYCLOAK_BASE_URL, REALM, CLIENT_ID, CLIENT_SECRET } = process.env;
+const { KEYCLOAK_BASE_URL, REALM, CLIENT_ID, CLIENT_SECRET , CLIENT_NAME } = process.env;
 
 export interface createUserBody {
   email: string;
@@ -16,7 +16,7 @@ export interface createUserBody {
   password?: string;
   requiredActions?: string[];
 
-  // ✅ new attributes
+  // new attributes
   phone_number?: string;
   CreatedBy?: string;
 
@@ -88,7 +88,7 @@ function buildUserPayload(userData: createUserBody): UserRepresentation {
 
     requiredActions: userData.requiredActions ? userData.requiredActions : [],
 
-    // ✅ ADD ATTRIBUTES HERE
+    // ADD ATTRIBUTES HERE
     attributes: {
       phone_number: userData.phone_number ? [userData.phone_number] : [],
       CreatedBy: userData.CreatedBy ? [userData.CreatedBy] : [],
@@ -181,7 +181,7 @@ export async function createUser(userData: createUserBody): Promise<any> {
   }
 
   try {
-    // ✅ 1) Create user
+    // 1) Create user
     const response = await axios.post(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users`,
       payload,
@@ -197,7 +197,7 @@ export async function createUser(userData: createUserBody): Promise<any> {
     const location = response.headers?.location;
     const userId = location?.split("/").pop();
 
-    // ✅ 2) Assign client roles (optional)
+    // 2) Assign client roles (optional)
     if (userData.clientRoles && userId) {
       const { clientId, roles } = userData.clientRoles;
 
@@ -411,6 +411,7 @@ function updateUserPayload(userData: any): Partial<UserRepresentation> {
     ...(userData.firstName !== undefined && { firstName: userData.firstName }),
     ...(userData.lastName !== undefined && { lastName: userData.lastName }),
     ...(userData.emailVerified !== undefined && { emailVerified: userData.emailVerified }),
+
     ...(userData.resetPassword && {
       credentials: [
         {
@@ -420,9 +421,89 @@ function updateUserPayload(userData: any): Partial<UserRepresentation> {
         },
       ],
     }),
-    ...(userData.requiredActions && { requiredActions: userData.requiredActions }),
+
+    // ...(userData.requiredActions && {
+    //   requiredActions: userData.requiredActions,
+    // }),
+    
+
+    //Since attributes is a nested object, we need to conditionally build it to avoid sending empty attributes
+    ...(userData.phone_number || userData.CreatedBy
+      ? {
+          attributes: {
+            ...(userData.phone_number && {
+              phone_number: [userData.phone_number],
+            }),
+            ...(userData.CreatedBy && {
+              CreatedBy: [userData.CreatedBy],
+            }),
+          },
+        }
+      : {}),
   };
 }
+
+
+async function updateClientRoles(
+  token: string,
+  userId: string,
+  clientId: string,
+  roles: string[]
+) {
+  const clientRes = await axios.get<KeycloakClientRepresentation[]>(
+    `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients?clientId=${clientId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  const clientUUID = clientRes.data[0]?.id;
+  if (!clientUUID) return;
+
+  // Typed response
+  const existingRolesRes = await axios.get<RoleRepresentation[]>(
+    `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/role-mappings/clients/${clientUUID}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  // Correct DELETE with body
+  if (existingRolesRes.data.length > 0) {
+    await axios.request({
+      method: "DELETE",
+      url: `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/role-mappings/clients/${clientUUID}`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      data: existingRolesRes.data,
+    });
+  }
+
+  // Fetch new role representations
+  const roleReps = await Promise.all(
+    roles.map(async (roleName) => {
+      const roleRes = await axios.get<RoleRepresentation>(
+        `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients/${clientUUID}/roles/${roleName}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return roleRes.data;
+    })
+  );
+
+  // Assign roles
+  await axios.post(
+    `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/role-mappings/clients/${clientUUID}`,
+    roleReps,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
+
+
+
+
 
 // Update user details
 
@@ -431,11 +512,11 @@ export async function updateUser(
   updateData: any
 ): Promise<any> {
   const token = await getAccessToken();
-
-  const payload = updateUserPayload(updateData) ; 
+  const payload = updateUserPayload(updateData);
 
   try {
-    const response = await axios.put(
+    // 1Update base user info
+    await axios.put(
       `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}`,
       payload,
       {
@@ -446,27 +527,29 @@ export async function updateUser(
       }
     );
 
+    // 2Update client roles (optional)
+    if (updateData.clientRoles) {
+      await updateClientRoles(
+        token!, // token is guaranteed to be defined here, but you can handle it more gracefully if needed
+        userId,
+        updateData.clientRoles.clientId,
+        updateData.clientRoles.roles
+      );
+    }
+
     return {
       code: 200,
-      message: `User is updated ${userId}`,
-      data: response.data || null,
+      message: `User updated ${userId}`,
     };
   } catch (error: any) {
-    if (error.response) {
-      return {
-        code: error.response.status,
-        message: error.response.statusText,
-        data: error.response.data,
-      };
-    } else {
-      return {
-        code: 500,
-        message: error.message,
-        data: null,
-      };
-    }
+    return {
+      code: error.response?.status || 500,
+      message: error.message,
+      data: error.response?.data,
+    };
   }
 }
+
 
 // Get Roles of a user
 export async function getUserRoles(userId: string) {
@@ -483,7 +566,7 @@ export async function getUserRoles(userId: string) {
 
   ///TODO : Assign proper Type safety with response from Keycloak Documentation
   const clientsResponse = (await get(
-    `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients?clientId=senvion`,
+    `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/clients?clientId=${CLIENT_NAME}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )) as any;
 
