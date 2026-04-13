@@ -162,7 +162,7 @@ export async function getOneUser(userId: string) {
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
 export async function createUser(userData: createUserBody): Promise<any> {
   const token = await getAccessToken();
-  const payload = buildUserPayload(userData);
+  const payload = buildUserPayload(userData); 
 
   const actionsList = [
     "VERIFY_EMAIL",
@@ -400,6 +400,8 @@ export async function enableUser(userId: string): Promise<any> {
 }
 
 
+///////////////////////////////////////UPDATE SERVICES///////////////////////////////////////////////////////////
+
 // PUT /admin/realms/{realm}/users/{user-id}
 //https://www.keycloak.org/docs-api/latest/rest-api/index.html#_users
 
@@ -549,7 +551,9 @@ export async function updateUser(
     };
   }
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////ROLES PART FOR USER SERVICES/////////////////////////////////////////////////
 
 // Get Roles of a user
 export async function getUserRoles(userId: string) {
@@ -587,6 +591,7 @@ export async function getUserRoles(userId: string) {
   };
 }
 
+/////////////////////////////GETTING USER ROLES FOR MULTIPLE USERS////////////////////////////////////////
 // Get the roles for multiple users
 export async function getAllUsersRoles(userIds: any[]): Promise<any> {
   const rolesMap: any = {};

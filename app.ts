@@ -64,7 +64,13 @@ export const exampleController = {
   // Add more controllers here for createUser, deleteUser, disableUser
 };
 
+// Health Check 
+async function healthCheck(req : Request ,res : Response){ 
+  res.status(200).json({message : "The Server is Running"})
+}
+
 // ----------------- Routes -----------------
+app.get('/healthcheck', (req , res) => healthCheck(req,res)); 
 app.get('/example/listall', (req, res) => exampleController.listUsers(req, res));
 app.use('/users', userRouter);
 app.use('/roles', roleRouter);
