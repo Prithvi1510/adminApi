@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
-import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser} from '../services/userService';
+import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser , enableUser} from '../services/userService';
+
+//Role Imports 
+import {getUserRoles , getAllUsersRoles } from '../services/userService'
 
 export const userController = {
   async getUsers(req: Request, res: Response) {
@@ -55,6 +58,16 @@ export const userController = {
     }
   },
 
+  async enableUser(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const result = await enableUser(userId);
+      res.status(result.code).json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
   async updateUser(req: Request, res: Response) {
     try {
       const userId = req.params.id;
@@ -64,5 +77,34 @@ export const userController = {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  }, 
+
+
+  ///////////////ROLES PART/////////////////
+  async getUserRoles(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const roles = await getUserRoles(userId);
+      res.status(200).json({ code: 200, message: `Roles for user ${userId}`, data: roles });
+    } catch (error: any) {
+      res.status(500).json({ code: 500, message: error.message });
+    }
+  },
+
+  async getAllUsersRoles(req: Request, res: Response) {
+    try {
+      // Expecting an array of user IDs in the request body
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds)) {
+        return res.status(400).json({ code: 400, message: "userIds must be an array" });
+      }
+
+      const roles = await getAllUsersRoles(userIds);
+      res.status(200).json({ code: 200, message: "Roles for users", data: roles });
+    } catch (error: any) {
+      res.status(500).json({ code: 500, message: error.message });
+    }
   }
+
 };
+
