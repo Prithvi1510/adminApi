@@ -3,7 +3,7 @@ import { getAccessToken } from "./userService"
 
 const KEYCLOAK_BASE_URL = process.env.KEYCLOAK_BASE_URL!;
 const REALM = process.env.REALM!;
-const CLIENT_NAME = 'senvion'
+const CLIENT_NAME = process.env.CLIENT_NAME!; 
 
 // Get all client roles for a given clientId
 export async function getAllClientRoles(clientId: string) {
