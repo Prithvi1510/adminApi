@@ -5,7 +5,7 @@ const KEYCLOAK_BASE_URL = process.env.KEYCLOAK_BASE_URL!;
 const REALM = process.env.REALM!;
 const CLIENT_NAME = 'senvion'
 
-// ✅ Get all client roles for a given clientId
+// Get all client roles for a given clientId
 export async function getAllClientRoles(clientId: string) {
   const token = await getAccessToken();
 
