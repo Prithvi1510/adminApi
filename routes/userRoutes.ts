@@ -11,6 +11,7 @@ userRouter.put('/:id/enable', userController.enableUser);
 userRouter.get('/:id', userController.getOneUser);
 userRouter.put('/:id', userController.updateUser);
 userRouter.get('/roles/:id', userController.getUserRoles);
+userRouter.post('/:id/reset-password', userController.resetUserPassword);
 
 
 

@@ -551,6 +551,47 @@ export async function updateUser(
     };
   }
 }
+
+/////////////////////////////Reset Password Functionality/////////////////////////////////////////////////////////// 
+
+export async function resetUserPassword(
+  userId: string,
+  password: string,
+  temporary: boolean = false // Change wehn email service is implemented to true for temporary password
+) {
+  
+  const token = await getAccessToken();
+
+  try {
+    await axios.put(
+      `${KEYCLOAK_BASE_URL}/admin/realms/${REALM}/users/${userId}/reset-password`,
+      {
+        type: "password",
+        value: password,
+        temporary,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return {
+      code: 200,
+      message: `Password reset successful for user ${userId}`,
+    };
+  } catch (error: any) {
+    return {
+      code: error.response?.status || 500,
+      message: error.message,
+      data: error.response?.data,
+    };
+  }
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////ROLES PART FOR USER SERVICES/////////////////////////////////////////////////

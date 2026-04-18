@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser , enableUser} from '../services/userService';
+import { getAllUsers, createUser, deleteUser, disableUser  , getOneUser , updateUser , enableUser , resetUserPassword} from '../services/userService';
 
 //Role Imports 
 import {getUserRoles , getAllUsersRoles } from '../services/userService'
@@ -79,6 +79,17 @@ export const userController = {
     }
   }, 
 
+  async resetUserPassword(req: Request, res: Response) { 
+    try {
+      const userId = req.params.id;
+      const { password, temporary } = req.body;
+
+      const result = await resetUserPassword(userId, password, false);
+      res.status(result.code).json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }, 
 
   ///////////////ROLES PART/////////////////
   async getUserRoles(req: Request, res: Response) {
